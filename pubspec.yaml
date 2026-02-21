@@ -1,5 +1,5 @@
-name: runanywhere_starter
-description: A comprehensive starter app demonstrating RunAnywhere SDK capabilities - on-device AI for Flutter.
+name: pocket_cfo
+description: Your Private Financial Brain - 100% Offline AI-powered personal CFO app built with RunAnywhere SDK.
 publish_to: 'none'
 
 version: 1.0.0+1
@@ -28,6 +28,21 @@ dependencies:
   # Utilities
   intl: ^0.19.0
   http: ^1.2.0
+  
+  # Database
+  sqflite: ^2.3.0
+  path: ^1.8.3
+  
+  # Charts
+  fl_chart: ^0.66.0
+  
+  # UUID generation
+  uuid: ^4.2.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
 
 flutter:
   uses-material-design: true

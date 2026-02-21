@@ -5,8 +5,9 @@ import 'package:runanywhere_llamacpp/runanywhere_llamacpp.dart';
 import 'package:runanywhere_onnx/runanywhere_onnx.dart';
 
 import 'services/model_service.dart';
+import 'services/ai_cfo_service.dart';
 import 'theme/app_theme.dart';
-import 'views/home_view.dart';
+import 'views/dashboard_view.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -22,23 +23,33 @@ void main() async {
   ModelService.registerDefaultModels();
 
   runApp(
-    ChangeNotifierProvider(
-      create: (_) => ModelService(),
-      child: const RunAnywhereStarterApp(),
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => ModelService()),
+        ChangeNotifierProvider(create: (_) => AICFOService()),
+      ],
+      child: const PocketCFOApp(),
     ),
   );
 }
 
-class RunAnywhereStarterApp extends StatelessWidget {
-  const RunAnywhereStarterApp({super.key});
+class PocketCFOApp extends StatelessWidget {
+  const PocketCFOApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'RunAnywhere Starter',
+      title: 'Pocket CFO',
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.darkTheme,
-      home: const HomeView(),
+      theme: AppTheme.darkTheme.copyWith(
+        primaryColor: const Color(0xFF2563EB),
+        colorScheme: ColorScheme.dark(
+          primary: const Color(0xFF2563EB),
+          secondary: const Color(0xFF10B981),
+          error: const Color(0xFFEF4444),
+        ),
+      ),
+      home: const DashboardView(),
     );
   }
 }
