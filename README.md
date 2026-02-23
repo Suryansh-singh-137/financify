@@ -387,11 +387,6 @@ MIT License - feel free to use this code for learning and building!
 - **HuggingFace** for the SmolLM2 model
 - **All hackathon participants** for the inspiration!
 
----
-
-## 💬 Elevator Pitch
-
-*"Pocket CFO is the world's first fully offline AI-powered personal finance assistant. Unlike traditional apps that send your sensitive financial data to the cloud, we run everything locally on your device using on-device AI. Ask questions like 'Can I afford this?' or 'Where am I overspending?' and get intelligent, personalized advice instantly—no internet required, no privacy compromised. We're making AI-powered financial intelligence accessible to everyone while keeping their data completely private."*
 
 ---
 
