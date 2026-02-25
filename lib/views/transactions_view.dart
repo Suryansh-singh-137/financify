@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
-import '../models/transaction.dart' as models;
-import '../models/category.dart';
 import '../database/database_helper.dart';
+import '../models/transaction.dart';
+import '../models/category.dart';
+import '../theme/app_theme.dart';
+import 'add_expense_view.dart';
 
 class TransactionsView extends StatefulWidget {
   const TransactionsView({super.key});
@@ -11,242 +13,192 @@ class TransactionsView extends StatefulWidget {
 }
 
 class _TransactionsViewState extends State<TransactionsView> {
-  final _db = DatabaseHelper.instance;
-  List<models.Transaction> _transactions = [];
+  final DatabaseHelper _db = DatabaseHelper.instance;
+  List<Transaction> _all = [];
+  List<Transaction> _filtered = [];
+  String _searchQuery = '';
+  String? _categoryFilter;
   bool _isLoading = true;
-  String? _filterCategory;
+
+  final _categories = ['all', 'food', 'transport', 'shopping', 'bills', 'entertainment', 'health'];
 
   @override
   void initState() {
     super.initState();
-    _loadTransactions();
+    _load();
   }
 
-  Future<void> _loadTransactions() async {
+  Future<void> _load() async {
     setState(() => _isLoading = true);
-
-    try {
-      final List<models.Transaction> transactions;
-      
-      if (_filterCategory != null) {
-        transactions = (await _db.getTransactionsByCategory(_filterCategory!)).cast<models.Transaction>();
-      } else {
-        transactions = (await _db.getAllTransactions()).cast<models.Transaction>();
-      }
-
-      setState(() {
-        _transactions = transactions;
-        _isLoading = false;
-      });
-    } catch (e) {
-      print('Error loading transactions: $e');
-      setState(() => _isLoading = false);
-    }
+    final all = await _db.getAllTransactions();
+    setState(() {
+      _all = all;
+      _applyFilters();
+      _isLoading = false;
+    });
   }
 
-  void _showFilterDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Filter by Category'),
-        content: SizedBox(
-          width: double.maxFinite,
-          child: ListView(
-            shrinkWrap: true,
-            children: [
-              ListTile(
-                leading: const Icon(Icons.all_inclusive),
-                title: const Text('All Categories'),
-                selected: _filterCategory == null,
-                onTap: () {
-                  setState(() => _filterCategory = null);
-                  Navigator.pop(context);
-                  _loadTransactions();
-                },
-              ),
-              const Divider(),
-              ...DefaultCategories.all.map((category) {
-                return ListTile(
-                  leading: Icon(category.icon, color: category.color),
-                  title: Text(category.name),
-                  selected: _filterCategory == category.id,
-                  onTap: () {
-                    setState(() => _filterCategory = category.id);
-                    Navigator.pop(context);
-                    _loadTransactions();
-                  },
-                );
-              }),
-            ],
-          ),
-        ),
-      ),
-    );
+  void _applyFilters() {
+    _filtered = _all.where((t) {
+      final matchesSearch = _searchQuery.isEmpty ||
+          t.merchant.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+          t.category.toLowerCase().contains(_searchQuery.toLowerCase());
+      final matchesCategory = _categoryFilter == null || _categoryFilter == 'all' || t.category == _categoryFilter;
+      return matchesSearch && matchesCategory;
+    }).toList();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppColors.primaryDark,
       appBar: AppBar(
-        title: const Text('All Transactions'),
+        title: const Text('Transactions'),
+        backgroundColor: AppColors.primaryDark,
         actions: [
           IconButton(
-            icon: Icon(
-              _filterCategory != null
-                  ? Icons.filter_alt
-                  : Icons.filter_alt_outlined,
-            ),
-            onPressed: _showFilterDialog,
-            tooltip: 'Filter',
+            icon: const Icon(Icons.add),
+            onPressed: () async {
+              final result = await Navigator.push(context, MaterialPageRoute(builder: (_) => const AddExpenseView()));
+              if (result == true) _load();
+            },
           ),
         ],
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _transactions.isEmpty
-              ? _buildEmptyState()
-              : RefreshIndicator(
-                  onRefresh: _loadTransactions,
-                  child: Column(
-                    children: [
-                      if (_filterCategory != null)
-                        Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.all(12),
-                          color: Colors.blue.shade900.withOpacity(0.3),
-                          child: Row(
-                            children: [
-                              const Text('Filtered by: '),
-                              Chip(
-                                label: Text(
-                                  DefaultCategories.getById(_filterCategory!)
-                                      .name,
-                                ),
-                                onDeleted: () {
-                                  setState(() => _filterCategory = null);
-                                  _loadTransactions();
-                                },
-                              ),
-                            ],
-                          ),
-                        ),
-                      Expanded(
-                        child: ListView.builder(
-                          itemCount: _transactions.length,
-                          itemBuilder: (context, index) {
-                            final transaction = _transactions[index];
-                            return _buildTransactionTile(transaction);
-                          },
+      body: Column(
+        children: [
+          // Search bar
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: TextField(
+              onChanged: (v) => setState(() {
+                _searchQuery = v;
+                _applyFilters();
+              }),
+              style: const TextStyle(color: AppColors.textPrimary),
+              decoration: InputDecoration(
+                hintText: 'Search transactions...',
+                prefixIcon: const Icon(Icons.search, color: AppColors.textMuted),
+                fillColor: AppColors.surfaceCard,
+                filled: true,
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              ),
+            ),
+          ),
+          // Category filter chips
+          SizedBox(
+            height: 40,
+            child: ListView.separated(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              scrollDirection: Axis.horizontal,
+              itemCount: _categories.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 8),
+              itemBuilder: (_, i) {
+                final cat = _categories[i];
+                final selected = (cat == 'all' && _categoryFilter == null) || cat == _categoryFilter;
+                final info = cat == 'all' ? null : CategoryInfo.getCategory(cat);
+                return GestureDetector(
+                  onTap: () => setState(() {
+                    _categoryFilter = cat == 'all' ? null : cat;
+                    _applyFilters();
+                  }),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: selected ? AppColors.accentCyan.withOpacity(0.2) : AppColors.surfaceCard,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: selected ? AppColors.accentCyan : Colors.transparent),
+                    ),
+                    child: Text(
+                      cat == 'all' ? 'All' : '${info!.emoji} ${info.label.split(' ')[0]}',
+                      style: TextStyle(color: selected ? AppColors.accentCyan : AppColors.textSecondary, fontSize: 12, fontWeight: selected ? FontWeight.w600 : FontWeight.normal),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 12),
+          // Transaction list
+          Expanded(
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : _filtered.isEmpty
+                    ? const Center(child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text('📭', style: TextStyle(fontSize: 48)),
+                          SizedBox(height: 12),
+                          Text('No transactions found', style: TextStyle(color: AppColors.textMuted)),
+                        ],
+                      ))
+                    : RefreshIndicator(
+                        onRefresh: _load,
+                        child: ListView.separated(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          itemCount: _filtered.length,
+                          separatorBuilder: (_, __) => Divider(color: AppColors.textMuted.withOpacity(0.1), height: 1),
+                          itemBuilder: (_, i) => _buildTile(_filtered[i]),
                         ),
                       ),
-                    ],
-                  ),
-                ),
-    );
-  }
-
-  Widget _buildEmptyState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.receipt_long, size: 80, color: Colors.grey),
-          const SizedBox(height: 16),
-          Text(
-            _filterCategory != null
-                ? 'No transactions in this category'
-                : 'No transactions yet',
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            _filterCategory != null
-                ? 'Try a different filter'
-                : 'Add your first expense to get started',
-            style: const TextStyle(color: Colors.grey),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildTransactionTile(models.Transaction transaction) {
-    final category = DefaultCategories.getById(transaction.category);
-
+  Widget _buildTile(Transaction t) {
+    final cat = CategoryInfo.getCategory(t.category);
     return Dismissible(
-      key: Key(transaction.id),
-      direction: DismissDirection.endToStart,
+      key: Key(t.id),
       background: Container(
-        color: Colors.red,
         alignment: Alignment.centerRight,
-        padding: const EdgeInsets.only(right: 16),
+        padding: const EdgeInsets.only(right: 20),
+        color: AppColors.error,
         child: const Icon(Icons.delete, color: Colors.white),
       ),
-      confirmDismiss: (direction) async {
-        return await showDialog<bool>(
-          context: context,
-          builder: (context) => AlertDialog(
-            title: const Text('Delete Transaction'),
-            content: const Text(
-              'Are you sure you want to delete this transaction?',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: const Text('Cancel'),
-              ),
-              TextButton(
-                onPressed: () => Navigator.pop(context, true),
-                child: const Text(
-                  'Delete',
-                  style: TextStyle(color: Colors.red),
-                ),
-              ),
-            ],
-          ),
-        );
+      direction: DismissDirection.endToStart,
+      confirmDismiss: (_) async => await showDialog<bool>(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: const Text('Delete Transaction'),
+          content: Text('Delete "${t.merchant}"?'),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+            TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Delete', style: TextStyle(color: Colors.red))),
+          ],
+        ),
+      ),
+      onDismissed: (_) async {
+        await _db.deleteTransaction(t.id);
+        await _load();
       },
-      onDismissed: (direction) async {
-        await _db.deleteTransaction(transaction.id);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Transaction deleted')),
-        );
-      },
-      child: Card(
-        margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        child: ListTile(
-          leading: CircleAvatar(
-            backgroundColor: category.color.withOpacity(0.2),
-            child: Icon(category.icon, color: category.color),
-          ),
-          title: Text(
-            transaction.description.isEmpty
-                ? category.name
-                : transaction.description,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-          subtitle: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(category.name),
-              Text(
-                transaction.formattedDate,
-                style: const TextStyle(fontSize: 12),
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+        leading: Container(
+          width: 44,
+          height: 44,
+          decoration: BoxDecoration(color: cat.color.withOpacity(0.15), borderRadius: BorderRadius.circular(12)),
+          child: Center(child: Text(cat.emoji, style: const TextStyle(fontSize: 20))),
+        ),
+        title: Text(t.merchant, style: const TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w500, fontSize: 14)),
+        subtitle: Text('${t.formattedDate} · ${cat.label}', style: const TextStyle(color: AppColors.textMuted, fontSize: 11)),
+        trailing: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Text(
+              t.type == TransactionType.expense ? '-${t.formattedAmount}' : '+${t.formattedAmount}',
+              style: TextStyle(
+                color: t.type == TransactionType.expense ? AppColors.error : AppColors.accentGreen,
+                fontWeight: FontWeight.bold,
+                fontSize: 14,
               ),
-            ],
-          ),
-          trailing: Text(
-            transaction.formattedAmount,
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: transaction.type == models.TransactionType.expense
-                  ? Colors.red
-                  : Colors.green,
             ),
-          ),
-          isThreeLine: true,
+            if (t.isRecurring)
+              const Text('🔄', style: TextStyle(fontSize: 10)),
+          ],
         ),
       ),
     );

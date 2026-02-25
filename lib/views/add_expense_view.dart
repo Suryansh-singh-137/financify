@@ -3,6 +3,7 @@ import 'package:uuid/uuid.dart';
 import '../models/transaction.dart';
 import '../models/category.dart';
 import '../database/database_helper.dart';
+import '../theme/app_theme.dart';
 
 class AddExpenseView extends StatefulWidget {
   const AddExpenseView({super.key});
@@ -14,54 +15,49 @@ class AddExpenseView extends StatefulWidget {
 class _AddExpenseViewState extends State<AddExpenseView> {
   final _formKey = GlobalKey<FormState>();
   final _amountController = TextEditingController();
-  final _descriptionController = TextEditingController();
+  final _merchantController = TextEditingController();
   final _db = DatabaseHelper.instance;
-  
-  Category? _selectedCategory;
+
+  String _selectedCategory = 'food';
   DateTime _selectedDate = DateTime.now();
   bool _isSaving = false;
+  bool _isRecurring = false;
+  TransactionType _type = TransactionType.expense;
+
+  final _categories = ['food', 'transport', 'shopping', 'bills', 'entertainment', 'health', 'education', 'other'];
 
   @override
   void dispose() {
     _amountController.dispose();
-    _descriptionController.dispose();
+    _merchantController.dispose();
     super.dispose();
   }
 
   Future<void> _saveExpense() async {
-    if (!_formKey.currentState!.validate() || _selectedCategory == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please fill all required fields')),
-      );
-      return;
-    }
+    if (!_formKey.currentState!.validate()) return;
 
     setState(() => _isSaving = true);
-
     try {
       final transaction = Transaction(
         id: const Uuid().v4(),
-        amount: double.parse(_amountController.text),
-        category: _selectedCategory!.id,
-        description: _descriptionController.text.trim(),
+        amount: double.parse(_amountController.text.replaceAll(',', '')),
+        merchant: _merchantController.text.trim().isEmpty ? _selectedCategory : _merchantController.text.trim(),
+        category: _selectedCategory,
+        description: _merchantController.text.trim(),
         date: _selectedDate,
-        type: TransactionType.expense,
+        type: _type,
+        isRecurring: _isRecurring,
+        importedFrom: 'manual',
       );
-
       await _db.insertTransaction(transaction);
-
       if (mounted) {
         Navigator.pop(context, true);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Expense added successfully!')),
+          SnackBar(content: Text('${_type == TransactionType.expense ? 'Expense' : 'Income'} added!')),
         );
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
-        );
-      }
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
     } finally {
       setState(() => _isSaving = false);
     }
@@ -74,183 +70,177 @@ class _AddExpenseViewState extends State<AddExpenseView> {
       firstDate: DateTime(2020),
       lastDate: DateTime.now(),
     );
-
-    if (picked != null) {
-      setState(() => _selectedDate = picked);
-    }
+    if (picked != null) setState(() => _selectedDate = picked);
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppColors.primaryDark,
       appBar: AppBar(
-        title: const Text('Add Expense'),
+        backgroundColor: AppColors.primaryDark,
+        title: const Text('Add Transaction'),
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(20),
         child: Form(
           key: _formKey,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Amount Input
-              const Text(
-                'Amount',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
+              // Type toggle
+              Container(
+                decoration: BoxDecoration(color: AppColors.surfaceCard, borderRadius: BorderRadius.circular(14)),
+                child: Row(
+                  children: [TransactionType.expense, TransactionType.income].map((t) {
+                    final selected = _type == t;
+                    final label = t == TransactionType.expense ? 'Expense' : 'Income';
+                    final color = t == TransactionType.expense ? AppColors.error : AppColors.accentGreen;
+                    return Expanded(
+                      child: GestureDetector(
+                        onTap: () => setState(() => _type = t),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          decoration: BoxDecoration(
+                            color: selected ? color.withOpacity(0.2) : Colors.transparent,
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          child: Center(
+                            child: Text(label, style: TextStyle(color: selected ? color : AppColors.textMuted, fontWeight: FontWeight.w600)),
+                          ),
+                        ),
+                      ),
+                    );
+                  }).toList(),
                 ),
               ),
+              const SizedBox(height: 24),
+
+              // Amount
+              _label('Amount'),
               const SizedBox(height: 8),
               TextFormField(
                 controller: _amountController,
-                keyboardType: TextInputType.number,
-                style: const TextStyle(fontSize: 24),
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                autofocus: true,
+                style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
                 decoration: const InputDecoration(
-                  prefix: Text('₹ ', style: TextStyle(fontSize: 24)),
+                  prefixText: '₹ ',
+                  prefixStyle: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
                   hintText: '0',
-                  border: OutlineInputBorder(),
                 ),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Please enter an amount';
-                  }
-                  if (double.tryParse(value) == null) {
-                    return 'Please enter a valid number';
-                  }
-                  if (double.parse(value) <= 0) {
-                    return 'Amount must be greater than 0';
-                  }
+                validator: (v) {
+                  if (v == null || v.isEmpty) return 'Enter an amount';
+                  if (double.tryParse(v.replaceAll(',', '')) == null) return 'Invalid number';
+                  if (double.parse(v.replaceAll(',', '')) <= 0) return 'Amount must be > 0';
                   return null;
                 },
               ),
               const SizedBox(height: 24),
 
-              // Category Selection
-              const Text(
-                'Category',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
+              // Merchant
+              _label('Merchant / Description'),
+              const SizedBox(height: 8),
+              TextFormField(
+                controller: _merchantController,
+                style: const TextStyle(color: AppColors.textPrimary),
+                decoration: const InputDecoration(
+                  hintText: 'e.g. Starbucks, Netflix...',
+                  prefixIcon: Icon(Icons.storefront_outlined, color: AppColors.textMuted),
                 ),
               ),
-              const SizedBox(height: 8),
-              GridView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 3,
-                  crossAxisSpacing: 12,
-                  mainAxisSpacing: 12,
-                  childAspectRatio: 1.2,
-                ),
-                itemCount: DefaultCategories.all.length,
-                itemBuilder: (context, index) {
-                  final category = DefaultCategories.all[index];
-                  final isSelected = _selectedCategory?.id == category.id;
+              const SizedBox(height: 24),
 
-                  return InkWell(
-                    onTap: () {
-                      setState(() => _selectedCategory = category);
-                    },
-                    borderRadius: BorderRadius.circular(12),
-                    child: Container(
+              // Category
+              _label('Category'),
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: _categories.map((cat) {
+                  final info = CategoryInfo.getCategory(cat);
+                  final selected = _selectedCategory == cat;
+                  return GestureDetector(
+                    onTap: () => setState(() => _selectedCategory = cat),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 150),
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                       decoration: BoxDecoration(
-                        color: isSelected
-                            ? category.color.withOpacity(0.2)
-                            : Colors.grey.withOpacity(0.1),
-                        border: Border.all(
-                          color: isSelected
-                              ? category.color
-                              : Colors.transparent,
-                          width: 2,
-                        ),
-                        borderRadius: BorderRadius.circular(12),
+                        color: selected ? info.color.withOpacity(0.2) : AppColors.surfaceCard,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: selected ? info.color : AppColors.textMuted.withOpacity(0.2)),
                       ),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(
-                            category.icon,
-                            color: category.color,
-                            size: 32,
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            category.name,
-                            style: const TextStyle(fontSize: 12),
-                            textAlign: TextAlign.center,
-                          ),
+                          Text(info.emoji, style: const TextStyle(fontSize: 16)),
+                          const SizedBox(width: 6),
+                          Text(info.label.split(' ')[0], style: TextStyle(color: selected ? info.color : AppColors.textSecondary, fontSize: 13, fontWeight: selected ? FontWeight.w600 : FontWeight.normal)),
                         ],
                       ),
                     ),
                   );
-                },
+                }).toList(),
               ),
               const SizedBox(height: 24),
 
-              // Description
-              const Text(
-                'Description (Optional)',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
+              // Date
+              _label('Date'),
               const SizedBox(height: 8),
-              TextFormField(
-                controller: _descriptionController,
-                decoration: const InputDecoration(
-                  hintText: 'e.g., Coffee at Starbucks',
-                  border: OutlineInputBorder(),
-                ),
-                maxLines: 2,
-              ),
-              const SizedBox(height: 24),
-
-              // Date Picker
-              const Text(
-                'Date',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 8),
-              InkWell(
+              GestureDetector(
                 onTap: _selectDate,
                 child: Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    border: Border.all(color: Colors.grey),
-                    borderRadius: BorderRadius.circular(8),
+                    color: AppColors.surfaceCard,
+                    borderRadius: BorderRadius.circular(12),
                   ),
                   child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        '${_selectedDate.day}/${_selectedDate.month}/${_selectedDate.year}',
-                        style: const TextStyle(fontSize: 16),
-                      ),
-                      const Icon(Icons.calendar_today),
+                      const Icon(Icons.calendar_today, color: AppColors.textMuted, size: 18),
+                      const SizedBox(width: 12),
+                      Text('${_selectedDate.day}/${_selectedDate.month}/${_selectedDate.year}', style: const TextStyle(color: AppColors.textPrimary, fontSize: 15)),
+                      const Spacer(),
+                      const Icon(Icons.arrow_drop_down, color: AppColors.textMuted),
                     ],
                   ),
                 ),
               ),
+              const SizedBox(height: 16),
+
+              // Recurring toggle
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                decoration: BoxDecoration(color: AppColors.surfaceCard, borderRadius: BorderRadius.circular(12)),
+                child: Row(
+                  children: [
+                    const Icon(Icons.repeat, color: AppColors.textMuted, size: 18),
+                    const SizedBox(width: 12),
+                    const Expanded(child: Text('Mark as recurring', style: TextStyle(color: AppColors.textPrimary, fontSize: 14))),
+                    Switch(
+                      value: _isRecurring,
+                      onChanged: (v) => setState(() => _isRecurring = v),
+                      activeColor: AppColors.accentCyan,
+                    ),
+                  ],
+                ),
+              ),
               const SizedBox(height: 32),
 
-              // Save Button
+              // Save button
               SizedBox(
                 width: double.infinity,
                 height: 56,
                 child: ElevatedButton(
                   onPressed: _isSaving ? null : _saveExpense,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.accentCyan,
+                    foregroundColor: AppColors.primaryDark,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  ),
                   child: _isSaving
-                      ? const CircularProgressIndicator(color: Colors.white)
-                      : const Text(
-                          'Save Expense',
-                          style: TextStyle(fontSize: 18),
-                        ),
+                      ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                      : const Text('Save', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                 ),
               ),
             ],
@@ -258,5 +248,9 @@ class _AddExpenseViewState extends State<AddExpenseView> {
         ),
       ),
     );
+  }
+
+  Widget _label(String text) {
+    return Text(text, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textSecondary, letterSpacing: 0.5));
   }
 }

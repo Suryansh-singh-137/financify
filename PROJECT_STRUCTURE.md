@@ -28,7 +28,7 @@ pocket_cfo/
 │   ├── views/                              # App screens
 │   │   ├── dashboard_view.dart             # Main dashboard
 │   │   ├── add_expense_view.dart           # Add/edit expense form
-│   │   ├── ai_chat_view.dart               # AI chat interface
+│   │   ├── ai_chat_view.               # AI chat interface
 │   │   ├── transactions_view.dart          # Transaction list
 │   │   ├── home_view.dart                  # (Legacy - from starter)
 │   │   ├── chat_view.dart                  # (Legacy - from starter)
@@ -69,9 +69,11 @@ pocket_cfo/
 ### 🎯 Core Application
 
 #### `lib/main.dart`
+
 **Purpose:** App initialization and root widget
 
 **Key Responsibilities:**
+
 - Initialize RunAnywhere SDK
 - Register LlamaCpp and ONNX backends
 - Register default AI models
@@ -79,6 +81,7 @@ pocket_cfo/
 - Define app theme
 
 **Dependencies:**
+
 - `ModelService` - Model management
 - `AICFOService` - AI chat service
 - `AppTheme` - UI theme
@@ -89,9 +92,11 @@ pocket_cfo/
 ### 📊 Models Layer
 
 #### `lib/models/transaction.dart`
+
 **Purpose:** Transaction entity definition
 
 **Key Components:**
+
 ```dart
 enum TransactionType { income, expense }
 
@@ -107,15 +112,18 @@ class Transaction {
 ```
 
 **Methods:**
+
 - `toMap()` - Convert to database format
 - `fromMap()` - Create from database
 - `formattedAmount` - Display as ₹X
 - `formattedDate` - Human-readable date
 
 #### `lib/models/category.dart`
+
 **Purpose:** Expense category definitions
 
 **Key Components:**
+
 ```dart
 class Category {
   - id, name, icon, color, budgetLimit
@@ -128,9 +136,11 @@ class DefaultCategories {
 ```
 
 #### `lib/models/financial_state.dart`
+
 **Purpose:** Financial analysis results
 
 **Key Components:**
+
 ```dart
 class MonthlyFinancialState {
   - income, totalSpent, remaining
@@ -154,9 +164,11 @@ class RiskAssessment {
 ### 💾 Database Layer
 
 #### `lib/database/database_helper.dart`
+
 **Purpose:** SQLite database operations
 
 **Schema:**
+
 ```sql
 -- Transactions
 CREATE TABLE transactions (
@@ -179,6 +191,7 @@ CREATE TABLE monthly_budgets (
 ```
 
 **CRUD Operations:**
+
 - `insertTransaction()`, `updateTransaction()`, `deleteTransaction()`
 - `getAllTransactions()`, `getTransactionsByMonth()`, `getTransactionsByCategory()`
 - `setMonthlyIncome()`, `getMonthlyIncome()`
@@ -189,9 +202,11 @@ CREATE TABLE monthly_budgets (
 ### 🧮 Services Layer
 
 #### `lib/services/finance_engine.dart`
+
 **Purpose:** Core financial calculations
 
 **Key Methods:**
+
 ```dart
 calculateMonthlyState(): MonthlyFinancialState
 - Calculates income, spending, remaining balance
@@ -210,15 +225,18 @@ getSpendingTrends(): Map<String, dynamic>
 ```
 
 **Health Score Formula:**
+
 ```
-Score = (40% Savings) + (30% Budget Adherence) + 
+Score = (40% Savings) + (30% Budget Adherence) +
         (20% Consistency) + (10% Emergency Buffer)
 ```
 
 #### `lib/services/prompt_builder.dart`
+
 **Purpose:** Generate AI context from financial data
 
 **Key Methods:**
+
 ```dart
 getSystemPrompt(): String
 - Defines AI CFO role and guidelines
@@ -242,9 +260,11 @@ buildFullPrompt(userQuery, state, ...): String
 ```
 
 #### `lib/services/ai_cfo_service.dart`
+
 **Purpose:** AI integration and response generation
 
 **Key Methods:**
+
 ```dart
 askQuestion(question): Future<String>
 - Extracts purchase amount from query (if present)
@@ -261,18 +281,22 @@ _generateResponse(prompt): Future<String>
 ```
 
 **Question Parsing:**
+
 - Detects purchase amounts: "₹5000", "Rs 5000", "5000 rupees"
 - Detects categories: "food", "transport", "shopping", etc.
 
 #### `lib/services/model_service.dart`
+
 **Purpose:** Manage RunAnywhere AI models
 
 **Registered Models:**
+
 - **LLM:** SmolLM2-360M-Instruct-Q8_0 (~400MB)
 - **STT:** Sherpa Whisper Tiny EN (~80MB)
 - **TTS:** Piper TTS US English Medium (~100MB)
 
 **Key Methods:**
+
 - `downloadAndLoadLLM()`, `downloadAndLoadSTT()`, `downloadAndLoadTTS()`
 - `isModelDownloaded()`, progress tracking
 - State management with `ChangeNotifier`
@@ -282,9 +306,11 @@ _generateResponse(prompt): Future<String>
 ### 🖥️ Views Layer
 
 #### `lib/views/dashboard_view.dart`
+
 **Purpose:** Main app screen
 
 **Features:**
+
 - Financial health score card
 - Monthly summary
 - Category breakdown chart
@@ -294,28 +320,34 @@ _generateResponse(prompt): Future<String>
 - Model loading indicator
 
 **State Management:**
+
 - Loads data from `FinanceEngine`
 - Refreshes on navigation return
 - Handles empty states
 
 #### `lib/views/add_expense_view.dart`
+
 **Purpose:** Expense creation form
 
 **Form Fields:**
+
 - Amount (required, numeric)
 - Category (required, visual grid selector)
 - Description (optional, text)
 - Date (required, date picker)
 
 **Validation:**
+
 - Amount > 0
 - Category selected
 - Saves to database via `DatabaseHelper`
 
 #### `lib/views/ai_chat_view.dart`
+
 **Purpose:** Conversational AI interface
 
 **Features:**
+
 - Suggested question chips
 - Free-form text input
 - Chat history with bubbles
@@ -323,6 +355,7 @@ _generateResponse(prompt): Future<String>
 - Model status banner
 
 **Flow:**
+
 1. User enters question
 2. Question added to chat
 3. Loading indicator shown
@@ -331,9 +364,11 @@ _generateResponse(prompt): Future<String>
 6. Chat updated with AI response
 
 #### `lib/views/transactions_view.dart`
+
 **Purpose:** All transactions list
 
 **Features:**
+
 - Scrollable transaction list
 - Swipe-to-delete with confirmation
 - Filter by category
@@ -345,9 +380,11 @@ _generateResponse(prompt): Future<String>
 ### 🎨 Widgets Layer
 
 #### `lib/widgets/health_score_card.dart`
+
 **Purpose:** Visual health score display
 
 **Features:**
+
 - Gradient background (color-coded by score)
 - Large score number (0-100)
 - Status text (Excellent/Good/Fair/Needs Attention)
@@ -355,15 +392,18 @@ _generateResponse(prompt): Future<String>
 - Remaining balance text
 
 **Color Scheme:**
+
 - 80-100: Green gradient
 - 60-79: Blue gradient
 - 40-59: Orange gradient
 - 0-39: Red gradient
 
 #### `lib/widgets/monthly_summary_card.dart`
+
 **Purpose:** Key financial metrics
 
 **Displays:**
+
 - Income
 - Spent (amount + percentage)
 - Remaining
@@ -372,18 +412,22 @@ _generateResponse(prompt): Future<String>
 - Daily burn rate
 
 #### `lib/widgets/category_chart.dart`
+
 **Purpose:** Spending breakdown visualization
 
 **Features:**
+
 - Pie chart using `fl_chart`
 - Legend with category colors
 - Percentage labels
 - Sorted by spending amount
 
 #### `lib/widgets/recent_transactions_list.dart`
+
 **Purpose:** Transaction list component
 
 **Features:**
+
 - Last N transactions
 - Category icons with colors
 - Amount highlighting (red for expenses)
@@ -395,9 +439,11 @@ _generateResponse(prompt): Future<String>
 ### 🛠️ Utilities
 
 #### `lib/utils/demo_data_generator.dart`
+
 **Purpose:** Generate realistic demo transactions
 
 **Features:**
+
 - Clears existing data
 - Sets income to ₹25,000
 - Generates 2-4 transactions per day
@@ -405,6 +451,7 @@ _generateResponse(prompt): Future<String>
 - Current month only
 
 **Transaction Templates:**
+
 - Food: Coffee, Lunch, Groceries (₹50-₹1200)
 - Transport: Uber, Metro, Fuel (₹30-₹500)
 - Shopping: Clothes, Electronics (₹500-₹3000)
@@ -417,15 +464,18 @@ _generateResponse(prompt): Future<String>
 ## 🎨 Theme Configuration
 
 #### `lib/theme/app_theme.dart`
+
 **Purpose:** App-wide styling
 
 **Key Colors:**
+
 - Primary: Blue (#2563EB) - Trust, stability
 - Success: Green (#10B981) - Positive actions
 - Warning: Orange (#F59E0B) - Caution
 - Error: Red (#EF4444) - High risk
 
 **Theme:**
+
 - Dark mode optimized
 - Material 3 design
 - Custom card elevations
@@ -436,9 +486,11 @@ _generateResponse(prompt): Future<String>
 ## 📋 Configuration Files
 
 ### `pubspec.yaml`
+
 **Purpose:** Project metadata and dependencies
 
 **Key Dependencies:**
+
 ```yaml
 # RunAnywhere SDK
 runanywhere: 0.16.0
@@ -464,6 +516,7 @@ intl: ^0.19.0
 ## 🔄 Data Flow Architecture
 
 ### User Adds Expense
+
 ```
 1. AddExpenseView (UI input)
    ↓
@@ -479,6 +532,7 @@ intl: ^0.19.0
 ```
 
 ### User Asks AI Question
+
 ```
 1. AIChatView (user input)
    ↓
@@ -496,6 +550,7 @@ intl: ^0.19.0
 ```
 
 ### Financial Health Calculation
+
 ```
 1. DashboardView._loadData()
    ↓
@@ -519,6 +574,7 @@ intl: ^0.19.0
 ### Adding a New Category
 
 1. **Edit `lib/models/category.dart`:**
+
 ```dart
 Category(
   id: 'gym',
@@ -532,6 +588,7 @@ Category(
 ### Adding a New AI Question Type
 
 1. **Edit `lib/services/prompt_builder.dart`:**
+
 ```dart
 static String buildComparisonContext(
   String category1,
@@ -543,6 +600,7 @@ static String buildComparisonContext(
 ```
 
 2. **Edit `lib/services/ai_cfo_service.dart`:**
+
 ```dart
 // Add detection logic
 if (question.contains('compare')) {
@@ -558,6 +616,7 @@ if (question.contains('compare')) {
 ### Adding a New Screen
 
 1. **Create view in `lib/views/`:**
+
 ```dart
 class BudgetPlanningView extends StatefulWidget {
   // New feature screen
@@ -565,6 +624,7 @@ class BudgetPlanningView extends StatefulWidget {
 ```
 
 2. **Add navigation in `lib/views/dashboard_view.dart`:**
+
 ```dart
 onTap: () {
   Navigator.push(
@@ -581,18 +641,21 @@ onTap: () {
 ## 📚 Learning Path
 
 **For Beginners:**
+
 1. Start with `lib/main.dart` - understand app initialization
 2. Explore `lib/models/` - learn data structures
 3. Read `lib/views/dashboard_view.dart` - see UI in action
 4. Study `lib/services/finance_engine.dart` - understand calculations
 
 **For Intermediate:**
+
 1. Deep dive into `lib/services/ai_cfo_service.dart` - AI integration
 2. Study `lib/services/prompt_builder.dart` - prompt engineering
 3. Explore `lib/database/database_helper.dart` - data persistence
 4. Customize widgets in `lib/widgets/`
 
 **For Advanced:**
+
 1. Optimize health score algorithm
 2. Implement new AI question types
 3. Add advanced visualizations

@@ -60,7 +60,7 @@ class CategoryChart extends StatelessWidget {
     List<MapEntry<String, double>> categories,
   ) {
     return categories.map((entry) {
-      final category = DefaultCategories.getById(entry.key);
+      final category = CategoryInfo.getCategory(entry.key);
       final percentage =
           (entry.value / state.totalSpent) * 100;
 
@@ -84,7 +84,7 @@ class CategoryChart extends StatelessWidget {
       itemCount: categories.length,
       itemBuilder: (context, index) {
         final entry = categories[index];
-        final category = DefaultCategories.getById(entry.key);
+        final category = CategoryInfo.getCategory(entry.key);
 
         return Padding(
           padding: const EdgeInsets.only(bottom: 8),
@@ -101,7 +101,7 @@ class CategoryChart extends StatelessWidget {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  category.name,
+                  category.label,
                   style: const TextStyle(fontSize: 12),
                   overflow: TextOverflow.ellipsis,
                 ),

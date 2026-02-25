@@ -6,6 +6,8 @@ class MonthlyFinancialState {
   final double savingsRate;
   final int daysRemainingInMonth;
   final double healthScore;
+  final double safeToSpend;
+  final double subscriptionTotal;
 
   MonthlyFinancialState({
     required this.income,
@@ -15,6 +17,8 @@ class MonthlyFinancialState {
     required this.savingsRate,
     required this.daysRemainingInMonth,
     required this.healthScore,
+    this.safeToSpend = 0,
+    this.subscriptionTotal = 0,
   });
 
   // Getters for computed values

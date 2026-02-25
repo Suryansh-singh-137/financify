@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/ai_cfo_service.dart';
 import '../services/model_service.dart';
-import '../services/prompt_builder.dart';
+import '../theme/app_theme.dart';
 
 class AIChatView extends StatefulWidget {
   const AIChatView({super.key});
@@ -12,56 +12,34 @@ class AIChatView extends StatefulWidget {
 }
 
 class _AIChatViewState extends State<AIChatView> {
-  final _questionController = TextEditingController();
-  final _scrollController = ScrollController();
-  final List<ChatMessage> _messages = [];
+  final TextEditingController _inputController = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
+
+  final List<_ChatMessage> _messages = [];
+
+  final _quickPrompts = [
+    'Can I afford ₹5,000 headphones?',
+    'Where am I overspending?',
+    'Summarize my subscriptions',
+    'How is my savings rate?',
+    'What\'s my biggest expense?',
+    'Am I on budget this month?',
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _messages.add(_ChatMessage(
+      isAI: true,
+      text: '👋 Hello! I\'m your AI CFO.\n\nI can answer questions about your finances, help you understand your spending, and give you actionable advice — all offline on your device.\n\nWhat would you like to know?',
+    ));
+  }
 
   @override
   void dispose() {
-    _questionController.dispose();
+    _inputController.dispose();
     _scrollController.dispose();
     super.dispose();
-  }
-
-  Future<void> _askQuestion(String question) async {
-    if (question.trim().isEmpty) return;
-
-    setState(() {
-      _messages.add(ChatMessage(
-        text: question,
-        isUser: true,
-        timestamp: DateTime.now(),
-      ));
-    });
-
-    _questionController.clear();
-    _scrollToBottom();
-
-    final aiCFO = Provider.of<AICFOService>(context, listen: false);
-
-    // Add placeholder for AI response
-    setState(() {
-      _messages.add(ChatMessage(
-        text: '',
-        isUser: false,
-        timestamp: DateTime.now(),
-        isLoading: true,
-      ));
-    });
-    _scrollToBottom();
-
-    final response = await aiCFO.askQuestion(question);
-
-    // Replace loading message with actual response
-    setState(() {
-      _messages.removeLast();
-      _messages.add(ChatMessage(
-        text: response,
-        isUser: false,
-        timestamp: DateTime.now(),
-      ));
-    });
-    _scrollToBottom();
   }
 
   void _scrollToBottom() {
@@ -76,249 +54,268 @@ class _AIChatViewState extends State<AIChatView> {
     });
   }
 
+  Future<void> _sendMessage(String text) async {
+    if (text.trim().isEmpty) return;
+    _inputController.clear();
+
+    setState(() {
+      _messages.add(_ChatMessage(isAI: false, text: text));
+      _messages.add(_ChatMessage(isAI: true, text: '', isLoading: true));
+    });
+    _scrollToBottom();
+
+    final aiService = Provider.of<AICFOService>(context, listen: false);
+    final response = await aiService.askQuestion(text);
+
+    setState(() {
+      final loading = _messages.lastWhere((m) => m.isLoading, orElse: () => _messages.last);
+      loading.text = response;
+      loading.isLoading = false;
+    });
+    _scrollToBottom();
+  }
+
   @override
   Widget build(BuildContext context) {
     final modelService = Provider.of<ModelService>(context);
-    final aiCFO = Provider.of<AICFOService>(context);
+    final aiService = Provider.of<AICFOService>(context);
 
     return Scaffold(
+      backgroundColor: AppColors.primaryDark,
       appBar: AppBar(
-        title: const Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        backgroundColor: AppColors.primaryDark,
+        title: Row(
           children: [
-            Text('Ask Your CFO'),
-            Text(
-              'AI-powered financial advice',
-              style: TextStyle(fontSize: 12),
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(colors: [AppColors.accentCyan, AppColors.accentViolet]),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Center(child: Text('AI', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13))),
+            ),
+            const SizedBox(width: 10),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('AI CFO', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                Text(
+                  modelService.isLLMLoaded ? 'Online · On-device' : 'Model not loaded',
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: modelService.isLLMLoaded ? AppColors.accentGreen : AppColors.warning,
+                  ),
+                ),
+              ],
             ),
           ],
         ),
+        actions: [
+          if (!modelService.isLLMLoaded)
+            IconButton(
+              icon: const Icon(Icons.download, color: AppColors.warning),
+              tooltip: 'Load AI Model',
+              onPressed: () => modelService.downloadAndLoadLLM(),
+            ),
+        ],
       ),
       body: Column(
         children: [
-          // Model Status Banner
-          if (!modelService.isLLMLoaded)
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(12),
-              color: Colors.orange.shade900.withOpacity(0.3),
-              child: Row(
-                children: [
-                  const Icon(Icons.warning, color: Colors.orange, size: 20),
-                  const SizedBox(width: 8),
-                  const Expanded(
-                    child: Text(
-                      'AI model not loaded. Load it from the dashboard.',
-                      style: TextStyle(fontSize: 12),
-                    ),
-                  ),
-                  TextButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: const Text('Go Back'),
-                  ),
-                ],
-              ),
-            ),
+          // Model not loaded banner
+          if (!modelService.isLLMLoaded) _buildModelBanner(modelService),
 
-          // Suggested Questions
-          if (_messages.isEmpty && modelService.isLLMLoaded)
-            Expanded(
-              child: _buildSuggestedQuestions(),
-            ),
-
-          // Chat Messages
-          if (_messages.isNotEmpty)
-            Expanded(
-              child: ListView.builder(
-                controller: _scrollController,
-                padding: const EdgeInsets.all(16),
-                itemCount: _messages.length,
-                itemBuilder: (context, index) {
-                  final message = _messages[index];
-                  return _buildMessageBubble(message);
-                },
-              ),
-            ),
-
-          // Input Area
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Theme.of(context).cardColor,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.1),
-                  blurRadius: 4,
-                  offset: const Offset(0, -2),
-                ),
-              ],
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _questionController,
-                    decoration: const InputDecoration(
-                      hintText: 'Ask a question...',
-                      border: OutlineInputBorder(),
-                      contentPadding: EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 12,
-                      ),
-                    ),
-                    maxLines: null,
-                    textCapitalization: TextCapitalization.sentences,
-                    enabled: modelService.isLLMLoaded && !aiCFO.isGenerating,
-                    onSubmitted: (value) => _askQuestion(value),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                IconButton.filled(
-                  onPressed: modelService.isLLMLoaded && !aiCFO.isGenerating
-                      ? () => _askQuestion(_questionController.text)
-                      : null,
-                  icon: aiCFO.isGenerating
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
-                        )
-                      : const Icon(Icons.send),
-                ),
-              ],
+          // Messages
+          Expanded(
+            child: ListView.builder(
+              controller: _scrollController,
+              padding: const EdgeInsets.all(16),
+              itemCount: _messages.length,
+              itemBuilder: (_, i) => _buildMessage(_messages[i]),
             ),
           ),
+
+          // Quick prompts
+          if (_messages.length <= 1) _buildQuickPrompts(),
+
+          // Input bar
+          _buildInputBar(aiService.isGenerating),
         ],
       ),
     );
   }
 
-  Widget _buildSuggestedQuestions() {
-    final questions = PromptBuilder.getSuggestedQuestions();
-
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+  Widget _buildModelBanner(ModelService modelService) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      color: AppColors.warning.withOpacity(0.12),
+      child: Row(
         children: [
-          const Text(
-            'Suggested Questions',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-            ),
+          const Icon(Icons.info_outline, color: AppColors.warning, size: 16),
+          const SizedBox(width: 8),
+          const Expanded(
+            child: Text('AI model not loaded. Download to enable AI answers.', style: TextStyle(color: AppColors.warning, fontSize: 12)),
           ),
-          const SizedBox(height: 8),
-          const Text(
-            'Tap any question to get instant AI-powered advice',
-            style: TextStyle(
-              color: Colors.grey,
-              fontSize: 14,
+          if (!modelService.isLLMDownloading && !modelService.isLLMLoading)
+            TextButton(
+              onPressed: () => modelService.downloadAndLoadLLM(),
+              style: TextButton.styleFrom(padding: EdgeInsets.zero),
+              child: const Text('Load', style: TextStyle(color: AppColors.warning, fontWeight: FontWeight.bold)),
+            )
+          else if (modelService.isLLMDownloading)
+            SizedBox(
+              width: 60,
+              child: LinearProgressIndicator(value: modelService.llmDownloadProgress / 100, color: AppColors.warning),
             ),
-          ),
-          const SizedBox(height: 16),
-          ...questions.map((question) {
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: Card(
-                child: InkWell(
-                  onTap: () => _askQuestion(question),
-                  borderRadius: BorderRadius.circular(12),
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.chat_bubble_outline, size: 20),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            question,
-                            style: const TextStyle(fontSize: 14),
-                          ),
-                        ),
-                        const Icon(Icons.arrow_forward_ios, size: 14),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            );
-          }),
         ],
       ),
     );
   }
 
-  Widget _buildMessageBubble(ChatMessage message) {
+  Widget _buildMessage(_ChatMessage msg) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: Row(
-        mainAxisAlignment:
-            message.isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
-        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: msg.isAI ? MainAxisAlignment.start : MainAxisAlignment.end,
+        crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          if (!message.isUser)
-            CircleAvatar(
-              backgroundColor: Colors.blue.shade900,
-              child: const Icon(Icons.account_balance, size: 20),
+          if (msg.isAI) ...[
+            Container(
+              width: 32,
+              height: 32,
+              margin: const EdgeInsets.only(right: 8, bottom: 0),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(colors: [AppColors.accentCyan, AppColors.accentViolet]),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Center(child: Text('AI', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold))),
             ),
-          const SizedBox(width: 8),
+          ],
           Flexible(
             child: Container(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: message.isUser
-                    ? Colors.blue.shade700
-                    : Colors.grey.shade800,
-                borderRadius: BorderRadius.circular(12),
+                color: msg.isAI ? AppColors.surfaceCard : AppColors.accentCyan,
+                borderRadius: BorderRadius.only(
+                  topLeft: const Radius.circular(18),
+                  topRight: const Radius.circular(18),
+                  bottomLeft: Radius.circular(msg.isAI ? 4 : 18),
+                  bottomRight: Radius.circular(msg.isAI ? 18 : 4),
+                ),
               ),
-              child: message.isLoading
+              child: msg.isLoading
                   ? Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        const Text('Thinking...'),
+                        _dot(0), const SizedBox(width: 4),
+                        _dot(1), const SizedBox(width: 4),
+                        _dot(2),
                       ],
                     )
                   : Text(
-                      message.text,
-                      style: const TextStyle(fontSize: 14),
+                      msg.text,
+                      style: TextStyle(
+                        color: msg.isAI ? AppColors.textPrimary : AppColors.primaryDark,
+                        fontSize: 14,
+                        height: 1.5,
+                      ),
                     ),
             ),
           ),
-          if (message.isUser) const SizedBox(width: 8),
-          if (message.isUser)
-            CircleAvatar(
-              backgroundColor: Colors.green.shade900,
-              child: const Icon(Icons.person, size: 20),
+        ],
+      ),
+    );
+  }
+
+  Widget _dot(int index) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0.5, end: 1.0),
+      duration: Duration(milliseconds: 600 + index * 200),
+      builder: (_, v, child) => Opacity(opacity: v, child: child),
+      child: Container(width: 8, height: 8, decoration: const BoxDecoration(color: AppColors.textMuted, shape: BoxShape.circle)),
+    );
+  }
+
+  Widget _buildQuickPrompts() {
+    return Container(
+      height: 42,
+      margin: const EdgeInsets.only(bottom: 8),
+      child: ListView.separated(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        scrollDirection: Axis.horizontal,
+        itemCount: _quickPrompts.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 8),
+        itemBuilder: (_, i) => GestureDetector(
+          onTap: () => _sendMessage(_quickPrompts[i]),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: AppColors.surfaceCard,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: AppColors.accentCyan.withOpacity(0.3)),
             ),
+            child: Text(_quickPrompts[i], style: const TextStyle(color: AppColors.accentCyan, fontSize: 12, fontWeight: FontWeight.w500)),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInputBar(bool isGenerating) {
+    return Container(
+      padding: EdgeInsets.only(left: 16, right: 16, top: 12, bottom: MediaQuery.of(context).viewInsets.bottom + 16),
+      decoration: BoxDecoration(
+        color: AppColors.primaryMid,
+        border: Border(top: BorderSide(color: AppColors.textMuted.withOpacity(0.15))),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: TextField(
+              controller: _inputController,
+              style: const TextStyle(color: AppColors.textPrimary, fontSize: 14),
+              maxLines: 3,
+              minLines: 1,
+              textInputAction: TextInputAction.send,
+              onSubmitted: isGenerating ? null : _sendMessage,
+              decoration: InputDecoration(
+                hintText: 'Ask your CFO anything...',
+                hintStyle: const TextStyle(color: AppColors.textMuted),
+                fillColor: AppColors.surfaceCard,
+                filled: true,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: BorderSide.none),
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          GestureDetector(
+            onTap: isGenerating ? null : () => _sendMessage(_inputController.text),
+            child: Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                gradient: isGenerating
+                    ? null
+                    : const LinearGradient(colors: [AppColors.accentCyan, AppColors.accentViolet]),
+                color: isGenerating ? AppColors.surfaceCard : null,
+                shape: BoxShape.circle,
+              ),
+              child: isGenerating
+                  ? const Center(child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)))
+                  : const Icon(Icons.send, color: Colors.white, size: 20),
+            ),
+          ),
         ],
       ),
     );
   }
 }
 
-class ChatMessage {
-  final String text;
-  final bool isUser;
-  final DateTime timestamp;
-  final bool isLoading;
+class _ChatMessage {
+  bool isAI;
+  String text;
+  bool isLoading;
 
-  ChatMessage({
-    required this.text,
-    required this.isUser,
-    required this.timestamp,
-    this.isLoading = false,
-  });
+  _ChatMessage({required this.isAI, required this.text, this.isLoading = false});
 }

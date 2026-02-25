@@ -42,16 +42,16 @@ class RecentTransactionsList extends StatelessWidget {
         separatorBuilder: (context, index) => const Divider(height: 1),
         itemBuilder: (context, index) {
           final transaction = transactions[index];
-          final category = DefaultCategories.getById(transaction.category);
+          final category = CategoryInfo.getCategory(transaction.category);
 
           return ListTile(
             leading: CircleAvatar(
               backgroundColor: category.color.withOpacity(0.2),
-              child: Icon(category.icon, color: category.color),
+              child: Text(category.emoji),
             ),
             title: Text(
               transaction.description.isEmpty
-                  ? category.name
+                  ? category.label
                   : transaction.description,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
