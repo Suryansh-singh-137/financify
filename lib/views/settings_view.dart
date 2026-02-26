@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../services/model_service.dart';
 import '../theme/app_theme.dart';
 import '../utils/demo_data_generator.dart';
+import 'csv_import_view.dart';
 
 class SettingsView extends StatefulWidget {
   const SettingsView({super.key});
@@ -179,6 +180,24 @@ class _SettingsViewState extends State<SettingsView> {
       decoration: BoxDecoration(color: AppColors.surfaceCard, borderRadius: BorderRadius.circular(20)),
       child: Column(
         children: [
+          ListTile(
+            onTap: () async {
+              final result = await Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const CSVImportView()),
+              );
+              if (result == true && mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('✅ Transactions imported!')),
+                );
+              }
+            },
+            leading: const Icon(Icons.file_upload, color: AppColors.accentViolet),
+            title: const Text('Import from CSV', style: TextStyle(color: AppColors.textPrimary)),
+            subtitle: const Text('Import transactions from bank export', style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
+            trailing: const Icon(Icons.arrow_forward_ios, size: 14, color: AppColors.textMuted),
+          ),
+          Divider(color: AppColors.textMuted.withOpacity(0.1), height: 1),
           ListTile(
             onTap: () => _loadDemo(context),
             leading: const Icon(Icons.auto_awesome, color: AppColors.accentCyan),
