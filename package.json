@@ -1,0 +1,25 @@
+{
+  "name": "financify",
+  "version": "1.0.0",
+  "description": "**Version:** 1.0.0  \r **Hackathon Project:** RunAnywhere SDK + Flutter  \r **Tagline:** \"100% Offline, 100% Secure, 100% Intelligent\"\r **demo**https://drive.google.com/file/d/1L6bBzPUwRNJxQyJ0ilPPVTkzys4fxFeh/view",
+  "main": "index.js",
+  "directories": {
+    "lib": "lib",
+    "test": "test"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Suryansh-singh-137/financify.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/Suryansh-singh-137/financify/issues"
+  },
+  "homepage": "https://github.com/Suryansh-singh-137/financify#readme"
+}
